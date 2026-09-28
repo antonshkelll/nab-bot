@@ -1,0 +1,6 @@
+# Нужны только для сборки FAQ, документов и карты (tools/)
+pdfplumber>=0.10
+Pillow>=10
+numpy
+scipy
+pytesseract

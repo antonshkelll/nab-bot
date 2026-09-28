@@ -1,0 +1,16 @@
+[Unit]
+Description=Telegram bot @sprosinab_bot + Mini App API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sprosinab
+WorkingDirectory=/opt/sprosinab
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/sprosinab/venv/bin/python /opt/sprosinab/main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
