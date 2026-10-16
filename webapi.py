@@ -21,6 +21,7 @@ from aiogram.types import FSInputFile
 from aiohttp import web
 
 import config
+from analytics import track
 from delivery import KINDS, Report, deliver, display_name, notify_admins
 from security import check_init_data
 
@@ -173,6 +174,7 @@ async def handle_report(request: web.Request) -> web.Response:
     try:
         file_ids = await deliver(bot, report)
         await notify_admins(bot, report, file_ids)
+        track(user["id"], "report_sent", kind, "webapp")
     except Exception as e:  # noqa: BLE001
         log.exception("deliver from webapp failed")
         return _err(f"Не удалось отправить: {e}", 502)

@@ -32,7 +32,9 @@ from aiogram.types import (
     WebAppInfo,
 )
 
+import analytics
 import config
+from analytics import track
 from delivery import KINDS, Report, deliver, display_name, notify_admins
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -43,6 +45,10 @@ if not config.TOKEN:
 
 bot = Bot(token=config.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
+
+if config.ANALYTICS:
+    analytics.init(config.ANALYTICS_DB, config.ANALYTICS_SALT)
+    dp.update.outer_middleware(analytics.AnalyticsMiddleware())
 
 # === БАЗА ДАННЫХ ПОЛЬЗОВАТЕЛЕЙ БОТА (SQLite) ===
 conn = sqlite3.connect(config.BASE_DIR / "users_nab.db", check_same_thread=False)
@@ -220,6 +226,7 @@ async def admin_dm_reply_handler(message: types.Message, state: FSMContext):
         return
 
     if await send_admin_reply(target_id, message):
+        track(target_id, "admin_reply_delivered")
         await message.reply("✅ <i>Ответ доставлен студенту.</i>")
     else:
         await message.reply("⚠️ <i>Не удалось отправить — возможно, студент заблокировал бота.</i>")
@@ -467,6 +474,7 @@ async def _handle_text_report(message: types.Message, state: FSMContext, kind: s
     try:
         file_ids = await deliver(bot, report)
         await notify_admins(bot, report, file_ids)
+        track(message.from_user.id, "report_sent", kind, "bot")
         await message.answer(KINDS[kind].user_ack, reply_markup=main_kb)
     except Exception as e:  # noqa: BLE001
         log.exception("delivery failed")
@@ -542,6 +550,7 @@ async def _send_repair(state: FSMContext, user: types.User, messages: list[types
     try:
         file_ids = await deliver(bot, report)
         await notify_admins(bot, report, file_ids)
+        track(user.id, "report_sent", "repair", "bot")
         await first.answer(KINDS["repair"].user_ack, reply_markup=main_kb)
     except Exception as e:  # noqa: BLE001
         log.exception("repair delivery failed")
@@ -580,6 +589,7 @@ async def admin_reply_handler(message: types.Message):
         return
 
     if await send_admin_reply(user_id, message):
+        track(user_id, "admin_reply_delivered")
         await message.reply("✅ <i>Ответ успешно доставлен пользователю!</i>")
     else:
         await message.reply("⚠️ <i>Не удалось отправить ответ. Возможно, пользователь заблокировал бота.</i>")

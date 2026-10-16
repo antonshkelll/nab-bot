@@ -13,6 +13,7 @@
 #     nab docs      пересобрать страницы НПБ (после замены PDF в docs/)
 #     nab faq       пересобрать FAQ (после замены docs/FAQ.pdf)
 #     nab map       пересобрать карту (после замены docs/Карта корпуса.pdf)
+#     nab stats     метрики: DAU/MAU, обращения, разделы, время ответа
 # =============================================================================
 
 LIVE="${SPROSINAB_LIVE:-/opt/sprosinab}"
@@ -52,7 +53,10 @@ case "${1:-help}" in
   map)
     "$LIVE/venv/bin/python" "$LIVE/tools/build_map.py" && "$0" publish
     ;;
+  stats)
+    "$LIVE/venv/bin/python" "$LIVE/tools/stats.py" "${2:-30}"
+    ;;
   *)
-    sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

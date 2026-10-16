@@ -42,7 +42,8 @@ class Obj:
 
 class Dispatcher:
     def __init__(self, *a, **k):
-        pass
+        self.middlewares = []
+        self.update = Obj(outer_middleware=self.middlewares.append)
 
     def message(self, *a, **k):
         return lambda f: f
@@ -166,6 +167,13 @@ async def run() -> None:
     await main.on_startup()
     check("set_my_description" not in [c[0] for c in main.bot.calls], "SET_BOT_PROFILE=0 не трогает профиль")
 
+    # --- аналитика подключена и не хранит Telegram ID в открытом виде ---
+    check(any(type(m).__name__ == "AnalyticsMiddleware" for m in main.dp.middlewares), "middleware аналитики подключён")
+    main.track(777, "report_sent", "question")
+    import sqlite3
+    rows = sqlite3.connect(main.config.ANALYTICS_DB).execute("SELECT user_hash, event FROM events").fetchall()
+    check(rows and rows[-1][1] == "report_sent" and "777" not in rows[-1][0], "событие записано, ID захеширован")
+
     db = ROOT / "users_nab.db"
     print(f"✅ bot: {ok}/{ok} проверок пройдено")
     return db
@@ -173,6 +181,9 @@ async def run() -> None:
 
 if __name__ == "__main__":
     existed = (ROOT / "users_nab.db").exists()
+    existed_stats = (ROOT / "analytics.db").exists()
     db = asyncio.run(run())
     if not existed and db.exists():
         db.unlink()                    # не оставляем тестовую базу в проекте
+    if not existed_stats and (ROOT / "analytics.db").exists():
+        (ROOT / "analytics.db").unlink()
