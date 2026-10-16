@@ -374,6 +374,14 @@ LINKS = {
 }
 
 
+# Для аналитики: только эти тексты — кнопки меню. Любой другой текст считается обращением и не сохраняется.
+analytics.set_buttons(
+    {b.text for kb in (main_kb, groups_kb) for row in kb.keyboard for b in row}
+    | set(LINKS)
+    | {"❓ FAQ", "📖 Часто задаваемые вопросы", "🗺️ Карта корпуса", "Карта корпуса", "🔧 Поломки"}
+)
+
+
 @dp.message(F.text.in_(set(LINKS)), StateFilter(any_state))
 async def url_handler(message: types.Message, state: FSMContext):
     await state.clear()

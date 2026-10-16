@@ -1,14 +1,15 @@
 """
 Продуктовая аналитика бота: событийный лог в SQLite и отчёт по метрикам.
 
-Что пишется:
-  * каждое сообщение и нажатие кнопки (middleware) — тип, текст кнопки или команда,
-    FSM-состояние;
+Что пишется (только из личных чатов с ботом — рабочий чат админов не считается):
+  * нажатия кнопок меню (текст кнопки), команды, callback-кнопки, FSM-состояние;
+  * любой другой текст — как событие «message» без содержимого;
   * бизнес-события через track(): report_sent (обращение ушло в рабочий чат),
     admin_reply_delivered (студент получил ответ).
 
-Приватность: вместо Telegram ID хранится HMAC-хеш, текст обращений не сохраняется —
-только названия кнопок и команд. Ошибки записи бота не роняют.
+Приватность: вместо Telegram ID хранится HMAC-хеш. Сохраняется только текст, который есть
+в списке кнопок меню (set_buttons) — вопросы студентов не попадают в базу, даже короткие.
+Ошибки записи бота не роняют.
 
 Отчёт: python tools/stats.py   или   nab stats
 """
@@ -35,9 +36,11 @@ CREATE INDEX IF NOT EXISTS ix_events_ts   ON events(ts);
 CREATE INDEX IF NOT EXISTS ix_events_user ON events(user_hash, ts);
 """
 
-MAX_LABEL = 40          # короче — кнопка или команда; длиннее — текст обращения, его не храним
+MAX_LABEL = 40
+PASSIVE = ("admin_reply_delivered",)    # события, которые не означают, что пользователь был активен
 
 _conn: sqlite3.Connection | None = None
+_buttons: frozenset[str] = frozenset()
 _salt: bytes = b""
 _lock = threading.Lock()
 
@@ -48,6 +51,12 @@ def init(db_path: Path | str, salt: str) -> None:
     _conn = sqlite3.connect(str(db_path), check_same_thread=False)
     _conn.executescript(SCHEMA)
     _conn.commit()
+
+
+def set_buttons(texts) -> None:
+    """Тексты кнопок меню. Только они сохраняются как метки; остальной текст — это обращения."""
+    global _buttons
+    _buttons = frozenset(texts)
 
 
 def user_hash(user_id: int) -> str:
@@ -66,10 +75,17 @@ def track(user_id: int, event: str, label: str | None = None, state: str | None 
         pass
 
 
+def _private(message: Any) -> bool:
+    chat = getattr(message, "chat", None)
+    return chat is None or getattr(chat, "type", "private") == "private"
+
+
 def classify(update: Any) -> tuple[int, str, str | None] | None:
-    """Апдейт Telegram → (user_id, тип события, метка). Остальные типы апдейтов пропускаем."""
+    """Апдейт Telegram → (user_id, тип события, метка). Групповые чаты и прочие апдейты пропускаем."""
     msg = getattr(update, "message", None)
     if msg is not None and getattr(msg, "from_user", None):
+        if not _private(msg):
+            return None
         text = msg.text or ""
         if text.startswith("/"):
             return msg.from_user.id, "command", text.split()[0][:MAX_LABEL]
@@ -77,11 +93,13 @@ def classify(update: Any) -> tuple[int, str, str | None] | None:
             return msg.from_user.id, "photo", None
         if getattr(msg, "web_app_data", None):
             return msg.from_user.id, "webapp", None
-        if text and len(text) <= MAX_LABEL and "\n" not in text:
+        if text in _buttons:
             return msg.from_user.id, "button", text
-        return msg.from_user.id, "message", None
+        return msg.from_user.id, "message", None          # текст обращения не сохраняем
     cb = getattr(update, "callback_query", None)
     if cb is not None and getattr(cb, "from_user", None):
+        if getattr(cb, "message", None) is not None and not _private(cb.message):
+            return None
         return cb.from_user.id, "callback", (cb.data or "")[:MAX_LABEL]
     return None
 
@@ -109,8 +127,10 @@ def report(db_path: Path | str, days: int = 30) -> str:
     def one(sql, *a):
         return con.execute(sql, a).fetchone()[0] or 0
 
+    passive = ",".join(f"'{e}'" for e in PASSIVE)
+
     def uniq(sec):
-        return one("SELECT count(DISTINCT user_hash) FROM events WHERE ts >= ?", now - sec)
+        return one(f"SELECT count(DISTINCT user_hash) FROM events WHERE ts >= ? AND event NOT IN ({passive})", now - sec)
 
     dau, wau, mau = uniq(86400), uniq(7 * 86400), uniq(30 * 86400)
     lines = [f"Пользователи: DAU {dau} · WAU {wau} · MAU {mau}"
@@ -126,10 +146,16 @@ def report(db_path: Path | str, days: int = 30) -> str:
         lines += ["", "Популярные разделы (уникальные пользователи):"]
         lines += [f"  {label:<28}{n:>5}" for label, n in top]
 
-    started = one("SELECT count(*) FROM events WHERE event = 'button' AND label LIKE '%Поломки%' AND ts >= ?", since)
-    repairs = one("SELECT count(*) FROM events WHERE event = 'report_sent' AND label = 'repair' AND ts >= ?", since)
+    # воронка в боте: из тех, кто открыл «Поломки», сколько людей отправили обращение через бота
+    started, finished = con.execute("""
+        WITH opened AS (SELECT DISTINCT user_hash FROM events
+                        WHERE event = 'button' AND label LIKE '%Поломки%' AND ts >= ?),
+             sent AS (SELECT DISTINCT user_hash FROM events
+                      WHERE event = 'report_sent' AND label = 'repair' AND state = 'bot' AND ts >= ?)
+        SELECT (SELECT count(*) FROM opened), (SELECT count(*) FROM opened JOIN sent USING (user_hash))""",
+        (since, since)).fetchone()
     if started:
-        lines += ["", f"Воронка «Поломки»: открыли {started} → отправили {repairs} ({repairs / started:.0%})"]
+        lines += ["", f"Воронка «Поломки» в боте: открыли {started} чел. → отправили {finished} ({finished / started:.0%})"]
 
     waits = [r[0] for r in con.execute("""
         SELECT min(a.ts) - s.ts FROM events s
@@ -140,10 +166,11 @@ def report(db_path: Path | str, days: int = 30) -> str:
         lines.append(f"Ответ Студсовета: медиана {waits[len(waits) // 2] / 3600:.1f} ч, ответили на {len(waits)} обращений")
 
     cohorts = con.execute("""
-        WITH first AS (SELECT user_hash, min(ts) AS t0 FROM events GROUP BY user_hash)
-        SELECT count(*), sum(EXISTS (SELECT 1 FROM events e WHERE e.user_hash = f.user_hash
+        WITH active AS (SELECT user_hash, ts FROM events WHERE event NOT IN ({passive})),
+             first AS (SELECT user_hash, min(ts) AS t0 FROM active GROUP BY user_hash)
+        SELECT count(*), sum(EXISTS (SELECT 1 FROM active e WHERE e.user_hash = f.user_hash
                                      AND e.ts BETWEEN f.t0 + 7 * 86400 AND f.t0 + 14 * 86400))
-        FROM first f WHERE f.t0 BETWEEN ? AND ?""", (now - 60 * 86400, now - 14 * 86400)).fetchone()
+        FROM first f WHERE f.t0 BETWEEN ? AND ?""".format(passive=passive), (now - 60 * 86400, now - 14 * 86400)).fetchone()
     if cohorts[0]:
         lines.append(f"Retention 2-й недели (пришли 2–8 недель назад): {cohorts[1] / cohorts[0]:.0%} из {cohorts[0]}")
     con.close()

@@ -169,6 +169,8 @@ async def run() -> None:
 
     # --- аналитика подключена и не хранит Telegram ID в открытом виде ---
     check(any(type(m).__name__ == "AnalyticsMiddleware" for m in main.dp.middlewares), "middleware аналитики подключён")
+    check({"🛠 Поломки", "📚 НПБ", "⬅️ Назад", "📢 ТГК NAB LABEL"} <= main.analytics._buttons,
+          "кнопки меню собраны из клавиатур для аналитики")
     main.track(777, "report_sent", "question")
     import sqlite3
     rows = sqlite3.connect(main.config.ANALYTICS_DB).execute("SELECT user_hash, event FROM events").fetchall()
