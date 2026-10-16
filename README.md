@@ -50,6 +50,25 @@ flowchart LR
   знает, кому переслать ответ админа. База — SQLite (только ID пользователей для рассылки).
 - **Секреты только в `.env`.** Токен, ID админов и чата в коде не хранятся.
 
+## Аналитика
+
+Бот пишет события в `analytics.db`: нажатия разделов, команды, отправленные обращения и доставленные ответы админов. Вместо Telegram ID хранится HMAC-хеш, а тексты обращений не сохраняются. Отключается строкой `ANALYTICS=0` в `.env`.
+
+```bash
+nab stats        # или: ./venv/bin/python tools/stats.py 30
+```
+
+```
+Пользователи: DAU · WAU · MAU · stickiness
+Обращения за 30 дней по типам
+Популярные разделы (уникальные пользователи)
+Воронка «Поломки»: открыли → отправили
+Ответ Студсовета: медиана часов до ответа
+Retention 2-й недели
+```
+
+По этим цифрам видно, какие разделы реально нужны студентам, где бросают форму поломки и как быстро Студсовет отвечает.
+
 ## Стек
 
 Python 3.10+ · aiogram 3 · aiohttp · SQLite · pypdf / pdfplumber · nginx · systemd
@@ -61,6 +80,7 @@ main.py          бот: меню, разделы, формы, ответы ад
 webapi.py        HTTP API для Mini App: /api/report, /api/doc, /api/faq
 delivery.py      единый формат обращений в рабочий чат
 security.py      проверка подписи Telegram initData
+analytics.py     событийная аналитика: middleware, track(), отчёт
 config.py        настройки (значения берутся из .env)
 tools/
   build_faq.sh   PDF → страницы webp + ссылки + текст для поиска
@@ -70,6 +90,7 @@ tools/
   pdf_links.py   ссылки из PDF → кликабельные зоны поверх страниц
   nab.sh         управление ботом на сервере одной командой
   doctor.sh      диагностика сервера
+  stats.py       отчёт по метрикам из analytics.db
 deploy/          systemd-сервис и конфиг nginx
 tests/           тесты без интернета и без aiogram
 ```
@@ -77,19 +98,19 @@ tests/           тесты без интернета и без aiogram
 ## Запуск локально
 
 ```bash
-git clone https://github.com/ВАШ_НИК/nab-bot.git
+git clone https://github.com/antonshkelll/nab-bot.git
 cd nab-bot
 python3 -m venv venv
 ./venv/bin/pip install -r requirements.txt
-cp .env.example .env        # впишисываю BOT_TOKEN, ADMIN_IDS, SUPER_CHAT_ID
+cp .env.example .env        # впишите BOT_TOKEN, ADMIN_IDS, SUPER_CHAT_ID
 ./venv/bin/python main.py
 ```
 
 ## Развёртывание на сервере
 
 ```bash
-sudo git clone https://github.com/ВАШ_НИК/nab-bot.git /opt/sprosinab
-sudo git clone https://github.com/ВАШ_НИК/nab-app.git /opt/sprosinab/webapp
+sudo git clone https://github.com/antonshkelll/nab-bot.git /opt/sprosinab
+sudo git clone https://github.com/antonshkelll/nab-app.git /opt/sprosinab/webapp
 cd /opt/sprosinab
 python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 cp .env.example .env && nano .env
@@ -101,7 +122,7 @@ bash tools/publish_webapp.sh
 sudo systemctl enable --now sprosinab
 ```
 
-Дальше всё делается через `nab`: `nab status`, `nab log`, `nab faq`, `nab map`, `nab doctor`.
+Дальше всё делается через `nab`: `nab status`, `nab log`, `nab faq`, `nab map`, `nab doctor`, `nab stats`.
 
 ## Тесты
 
