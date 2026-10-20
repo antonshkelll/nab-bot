@@ -10,7 +10,7 @@
      понимает, сколько страниц у каждого документа.
 
 Запуск:
-    cd /opt/sprosinab
+    cd /root/sprosinab
     ./venv/bin/python tools/build_docs.py
 
 Нужны пакеты системы:
@@ -54,6 +54,17 @@ SUBTITLES = {
     "8": "Скидки на обучение",
     "9": "Как устроен ССт",
 }
+
+# Документы, добавленные через Пульт приложения, — в data/docs.json (его пишет content.py)
+_REG = ROOT / "data" / "docs.json"
+if _REG.exists():
+    try:
+        for _d in json.loads(_REG.read_text(encoding="utf-8")):
+            TITLES[str(_d["id"])] = _d.get("title") or TITLES.get(str(_d["id"]), "Документ")
+            if _d.get("sub") is not None:
+                SUBTITLES[str(_d["id"])] = _d.get("sub") or ""
+    except (ValueError, KeyError, OSError):
+        pass
 
 PAGE_WIDTH = 1100      # ширина страницы-картинки
 THUMB_WIDTH = 300
@@ -133,12 +144,24 @@ def main() -> None:
         sys.exit(f"❌ Нет папки {DOCS}")
 
     OUT.mkdir(parents=True, exist_ok=True)
+    only = sys.argv[sys.argv.index("--only") + 1] if "--only" in sys.argv else None
     manifest: list[dict] = []
+    if only:                      # пересобираем один документ, остальные берём из прежнего manifest
+        try:
+            old = json.loads((OUT / "manifest.json").read_text(encoding="utf-8")).get("docs", [])
+        except (OSError, ValueError):
+            old = []
+        manifest = [d for d in old if d.get("id") != only and find_source(d.get("id", "")) is not None]
+        for d in manifest:
+            d["title"] = TITLES.get(d["id"], d.get("title", ""))
+            d["subtitle"] = SUBTITLES.get(d["id"], d.get("subtitle", ""))
 
     with tempfile.TemporaryDirectory() as workdir:
         work = Path(workdir)
 
         for number, title in TITLES.items():
+            if only and number != only:
+                continue
             src = find_source(number)
             if src is None:
                 print(f"⚪ {number}. {title} — файла нет, пропускаю")
@@ -177,6 +200,7 @@ def main() -> None:
             })
             print(f"   ✅ {made} страниц, ссылок: {links} → assets/docs/{slug}/")
 
+    manifest.sort(key=lambda d: int(d["id"]) if str(d["id"]).isdigit() else 999)
     (OUT / "manifest.json").write_text(
         json.dumps({"docs": manifest}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -189,7 +213,7 @@ def main() -> None:
         print("⚠️  Ни одного документа не нашлось. Положите файлы в docs/ "
               "с именами, начинающимися с номера: «1. Устав ….pdf»")
     print("\nТеперь выложите приложение:")
-    print("   bash /opt/sprosinab/tools/publish_webapp.sh")
+    print("   bash /root/sprosinab/tools/publish_webapp.sh")
 
 
 if __name__ == "__main__":

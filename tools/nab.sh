@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  nab — управление ботом «Спроси ССт НАБ» одной командой.
-#  Установка: sudo ln -s /opt/sprosinab/tools/nab.sh /usr/local/bin/nab
+#  Установщик кладёт этот файл в /usr/local/bin/nab.
 #
 #     nab status    работает ли бот (зелёное active = всё хорошо)
 #     nab restart   перезапустить бота
@@ -9,14 +9,15 @@
 #     nab log       последние 60 строк журнала
 #     nab live      журнал в реальном времени (выход — Ctrl+C)
 #     nab doctor    полная диагностика
+#     nab update    обновиться из /root/sprosinab.zip
 #     nab publish   заново выложить приложение (после правок в webapp/)
 #     nab docs      пересобрать страницы НПБ (после замены PDF в docs/)
 #     nab faq       пересобрать FAQ (после замены docs/FAQ.pdf)
 #     nab map       пересобрать карту (после замены docs/Карта корпуса.pdf)
-#     nab stats     метрики: DAU/MAU, обращения, разделы, время ответа
+#     nab clean     удалить старые версии (спросит про каждую)
 # =============================================================================
 
-LIVE="${SPROSINAB_LIVE:-/opt/sprosinab}"
+LIVE="${SPROSINAB_LIVE:-/root/sprosinab}"
 WWW="${SPROSINAB_WWW:-/var/www/sprosinab}"
 SVC=sprosinab
 G=$'\033[1;32m'; R=$'\033[1;31m'; Y=$'\033[1;33m'; N=$'\033[0m'
@@ -53,10 +54,16 @@ case "${1:-help}" in
   map)
     "$LIVE/venv/bin/python" "$LIVE/tools/build_map.py" && "$0" publish
     ;;
-  stats)
-    "$LIVE/venv/bin/python" "$LIVE/tools/stats.py" "${2:-30}"
+  update|u)
+    ZIP="${2:-/root/sprosinab.zip}"
+    [ -f "$ZIP" ] || { echo "❌ Нет файла $ZIP — перетащите новый архив в /root через MobaXterm"; exit 1; }
+    rm -rf /tmp/nab_new && mkdir -p /tmp/nab_new && unzip -oq "$ZIP" -d /tmp/nab_new || exit 1
+    INST="$(find /tmp/nab_new -maxdepth 2 -name install.sh | head -1)"
+    [ -n "$INST" ] || { echo "❌ В архиве нет install.sh"; exit 1; }
+    bash "$INST" --update
     ;;
+  clean|cleanup) bash "$LIVE/tools/cleanup_old.sh" ;;
   *)
-    sed -n '3,16p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '3,17p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

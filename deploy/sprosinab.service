@@ -5,10 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=sprosinab
-WorkingDirectory=/opt/sprosinab
+User=root
+WorkingDirectory=/root/sprosinab
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/sprosinab/venv/bin/python /opt/sprosinab/main.py
+ExecStart=/root/sprosinab/venv/bin/python /root/sprosinab/main.py
 Restart=always
 RestartSec=5
 

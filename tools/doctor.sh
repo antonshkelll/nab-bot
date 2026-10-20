@@ -2,7 +2,7 @@
 # =============================================================================
 #  Диагностика «Спроси ССт НАБ».
 #
-#      bash /opt/sprosinab/tools/doctor.sh
+#      bash /root/sprosinab/tools/doctor.sh
 #
 #  Показывает всё, что нужно, чтобы понять причину ошибки в приложении.
 #  Токен целиком нигде не печатается — только номер бота до двоеточия.
@@ -10,7 +10,7 @@
 
 set -uo pipefail
 
-LIVE="${SPROSINAB_LIVE:-/opt/sprosinab}"
+LIVE="${SPROSINAB_LIVE:-/root/sprosinab}"
 ENV_FILE="$LIVE/.env"
 
 ok()   { printf '  \033[1;32m✔\033[0m %s\n' "$*"; }

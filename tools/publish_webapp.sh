@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Копирует Mini App из webapp/ в папку, которую отдаёт nginx.
 # Запускайте каждый раз после правок в webapp/ и после build_docs.py:
-#     bash /opt/sprosinab/tools/publish_webapp.sh
+#     bash /root/sprosinab/tools/publish_webapp.sh
 
 set -euo pipefail
 
