@@ -11,10 +11,15 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.11"
-      # тесты специально работают без aiogram и без интернета
-      - run: |
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      # Mini App живёт в отдельном репозитории и на сервере кладётся в ./webapp
+      - name: Mini App
+        run: git clone --depth 1 https://github.com/antonshkelll/nab-app.git webapp
+      # тесты работают с поддельным Telegram, без токена и без интернета
+      - name: Tests
+        run: |
           python tests/test_security.py
-          python tests/test_delivery.py
-          python tests/test_analytics.py
+          python tests/test_core.py
           python tests/test_bot.py
