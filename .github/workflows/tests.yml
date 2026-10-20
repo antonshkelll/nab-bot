@@ -13,7 +13,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt
+      # openpyxl нужен только тестам — чтобы открыть и проверить отчёт в Excel
+      - run: pip install -r requirements.txt openpyxl
       # Mini App живёт в отдельном репозитории и на сервере кладётся в ./webapp
       - name: Mini App
         run: git clone --depth 1 https://github.com/antonshkelll/nab-app.git webapp
