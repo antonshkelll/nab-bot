@@ -1,5 +1,9 @@
 const { chromium } = require('playwright');
 const assert = require('assert');
+const path = require('path');
+
+// любая JPEG-картинка из репозитория подходит для проверки загрузки фото
+const PHOTO = path.join(__dirname, '..', 'assets', 'welcome.jpg');
 
 (async () => {
   const b = await chromium.launch();
@@ -72,12 +76,12 @@ const assert = require('assert');
   assert.strictEqual(await page.locator('#fileInput').count(), 1, 'инпут для фото');
 
   // 7b. Реальная загрузка фото: превью + отправка multipart
-  await page.setInputFiles('#fileInput', '/tmp/claude-0/test.jpg');
+  await page.setInputFiles('#fileInput', PHOTO);
   await page.waitForTimeout(600);
   assert.strictEqual(await page.locator('#photoGrid .photo').count(), 1, 'превью фото появилось');
   await page.click('#photoGrid .photo__del'); await page.waitForTimeout(200);
   assert.strictEqual(await page.locator('#photoGrid .photo').count(), 0, 'фото удаляется');
-  await page.setInputFiles('#fileInput', '/tmp/claude-0/test.jpg');
+  await page.setInputFiles('#fileInput', PHOTO);
   await page.waitForTimeout(600);
   await page.fill('#place', 'Кибальчича, ауд. 206');
   await page.fill('#text', 'Не работает розетка у окна');
