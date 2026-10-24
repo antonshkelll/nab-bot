@@ -4,10 +4,12 @@
 Коротко:
 
 1. MobaXterm → панель файлов → путь `/root/` → перетащите `sprosinab.zip`.
-2. Вставьте одну команду:
+2. Вставьте команды:
 
    ```bash
-   cd /root && rm -rf /tmp/nab_new && unzip -oq sprosinab.zip -d /tmp/nab_new && bash /tmp/nab_new/sprosinab/install.sh
+   cd /root && rm -rf /tmp/nab_new
+   unzip -oq sprosinab.zip -d /tmp/nab_new
+   bash /tmp/nab_new/sprosinab/install.sh
    ```
 
 3. На вопросы (токен, домен, почта) можно отвечать Enter, тогда подставится текущее значение.
@@ -50,8 +52,12 @@ ls -d /root/sprosinab_backup_*                    # затем rm -rf нужно
 ## Тесты
 
 ```bash
-python3 tests/test_security.py   # подпись initData
-python3 tests/test_core.py       # обращения, анонимность, анонсы, опросы, API
-python3 tests/test_bot.py        # /start, профиль бота, команды
-NAB_TEST=1 SPROSINAB_LIVE=/tmp/x SPROSINAB_WWW=/tmp/w bash install.sh --yes   # пробный прогон установщика
+# подпись initData
+python3 tests/test_security.py
+# обращения, анонимность, анонсы, опросы, API
+python3 tests/test_core.py
+# /start, профиль бота, команды
+python3 tests/test_bot.py
+# пробный прогон установщика
+NAB_TEST=1 SPROSINAB_LIVE=/tmp/x SPROSINAB_WWW=/tmp/w bash install.sh --yes
 ```

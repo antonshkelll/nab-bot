@@ -122,7 +122,8 @@ cp .env.example .env        # BOT_TOKEN, ADMIN_IDS, SUPER_CHAT_ID
 
 ```bash
 python3 tests/test_security.py   # подпись initData — 12 проверок
-python3 tests/test_core.py       # обращения, анонимность, анонсы, опросы, API — 113 проверок
+# обращения, анонимность, анонсы, опросы, API — 113 проверок
+python3 tests/test_core.py
 python3 tests/test_bot.py        # запуск, профиль бота, команды — 39 проверок
 node tests/e2e.js                # интерфейс Mini App (Playwright)
 ```
@@ -136,3 +137,4 @@ Python 3.10+ · aiogram 3 · aiohttp · SQLite · pypdf · nginx · systemd · T
 Антон Шкель, ПрИнж25-1, Финансовый университет при Правительстве РФ.
 
 Код распространяется под лицензией [MIT](LICENSE). Логотипы NAB Label, фотографии, шрифты и документы принадлежат Студенческому совету НАБ и под лицензию не входят.
+
